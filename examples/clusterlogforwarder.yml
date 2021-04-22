@@ -1,0 +1,21 @@
+apiVersion: logging.openshift.io/v1
+kind: ClusterLogForwarder
+metadata:
+  name: instance
+  namespace: openshift-logging
+spec:
+  inputs:
+  - application:
+      namespaces:
+      - 5gcore
+    name: open5gs-logs
+  outputs:
+  - name: fluentd-stdout
+    type: fluentdForward
+    url: tcp://fluentd-forward.xymox-logging.svc.cluster.local:24224
+  pipelines:
+  - inputRefs:
+    - open5gs-logs
+    name: forward-to-fluentd-stdout
+    outputRefs:
+    - fluentd-stdout
