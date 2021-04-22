@@ -3,6 +3,20 @@ kind: ServiceAccount
 metadata:
   name: fluentd
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fluentd-forward
+  labels:
+    name: fluentd-stdout
+spec:
+  selector:
+    name: fluentd-stdout
+  ports:
+    - protocol: TCP
+      port: 24224
+      targetPort: fluentd-forward
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,6 +34,10 @@ spec:
     spec:
       containers:
       - command:
+        - scl
+        - enable
+        - rh-ruby25
+        - -- 
         - /bin/sh
         - -c
         - sleep infinity
@@ -33,9 +51,20 @@ spec:
         imagePullPolicy: IfNotPresent
         name: fluentd-stdout
         resources: {}
+        volumeMounts:
+        - name: fluent-stdout-conf
+          mountPath: /etc/fluentd/fluent.conf
+          subPath: "fluent.conf"
+        ports:
+        - containerPort: 24224
+          name: fluentd-forward
       nodeSelector:
         kubernetes.io/os: linux
       restartPolicy: Always
       securityContext: {}
       serviceAccount: fluentd
       serviceAccountName: fluentd
+      volumes:
+      - name: fluent-stdout-conf
+        configMap:
+          name: fluent-stdout-conf
