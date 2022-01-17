@@ -1,0 +1,25 @@
+FROM ubi8
+#FROM registry.redhat.io/ubi8
+
+# Debug toolkit
+#
+
+MAINTAINER Philippe HUET <phuet@redhat.com>
+
+LABEL io.k8s.description="ubi8 rsyslogd container as a Pod." \
+      io.k8s.display-name="ubi-rsyslogd" \
+      io.openshift.tags="logging,clusterlogging,syslog,rsyslog" \
+      io.openshift.non-scalable="true"
+
+RUN dnf install -y rsyslog && \
+    dnf clean all -y
+
+COPY rsyslog-stdout.conf /etc/rsyslog-stdout.conf
+
+RUN mkdir -p /var/run/rsyslog
+#
+# Switch to unprivileged user
+#
+USER 1000
+
+CMD ["rsyslogd", "-n", "-f", "/etc/rsyslog-stdout.conf", "-i", "/tmp/rsyslog.pid"]
