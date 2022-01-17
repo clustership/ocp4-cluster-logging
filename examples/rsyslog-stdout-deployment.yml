@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rsyslog
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rsyslog-forward
+  labels:
+    name: rsyslog-stdout
+spec:
+  selector:
+    name: rsyslog-stdout
+  ports:
+    - protocol: TCP
+      port: 514
+      targetPort: syslog
+--- 
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rsyslog-stdout-conf
+data:
+  rsyslog.conf: |
+    #module(load="imuxsock"    # provides support for local system logging (e.g. via logger command)
+    #       SysSock.Use="off") # Turn off message reception via local log socket;
+
+    module(load="imtcp") # needs to be done just once
+    input(type="imtcp" port="10514")
+    
+    global(workDirectory="/tmp")
+    module(load="builtin:omfile" Template="RSYSLOG_TraditionalFileFormat")
+    include(file="/etc/rsyslog.d/*.conf" mode="optional")
+    
+    # activate unix socket listen
+    module(load="imuxsock" SysSock.Name="/var/run/rsyslog/dev/log")
+    input(type="imuxsock" Socket="/var/run/rsyslog/dev/log" CreatePath="on")
+
+    module(load="omstdout")
+    *.* :omstdout:
+
+    # send periodically a --MARK-- message
+    module(load="immark")
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: run-rsyslog-sh
+data:
+  run.sh: |
+    #!/bin/sh
+
+    rsyslogd -n -f /etc/rsyslog-stdout.conf -i /tmp/rsyslog.pid
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rsyslog-stdout
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: rsyslog-stdout
+  template:
+    metadata:
+      annotations:
+      labels:
+        name: rsyslog-stdout
+    spec:
+      containers:
+      - command:
+        - /bin/sh
+        - /run.sh
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        image: quay.io/xymox/ubi8-debug-toolkit:0.2
+        imagePullPolicy: IfNotPresent
+        name: rsyslog-stdout
+        resources: {}
+        volumeMounts:
+        - name: rsyslog-stdout-conf
+          mountPath: /etc/rsyslog-stdout.conf
+          subPath: "rsyslog.conf"
+        - name: run-sh
+          mountPath: /run.sh
+          subPath: "run.sh"
+        ports:
+        - containerPort: 10514
+          proto: TCP
+          name: syslog
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: Always
+      securityContext: {}
+      serviceAccount: rsyslog
+      serviceAccountName: rsyslog
+      volumes:
+      - name: rsyslog-stdout-conf
+        configMap:
+          name: rsyslog-stdout-conf
+      - name: run-sh
+        configMap:
+          name: run-rsyslog-sh
