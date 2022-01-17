@@ -17,6 +17,10 @@ spec:
       port: 514
       targetPort: syslog
 --- 
+#
+# This configMap is not required anymore as rsyslogd container embeded a default configuration to output data to stdout.
+# Use this for debug purpose or for fine tuning
+#
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -43,6 +47,10 @@ data:
     # send periodically a --MARK-- message
     module(load="immark")
 ---
+#
+# This script is not required anymore as default command from rsyslogd container is the same.
+# Use this to override startup parameters
+#
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -78,7 +86,7 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.name
-        image: quay.io/xymox/ubi8-debug-toolkit:0.2
+        image: quay.io/xymox/ubi-rsyslogd:8.2102
         imagePullPolicy: IfNotPresent
         name: rsyslog-stdout
         resources: {}
